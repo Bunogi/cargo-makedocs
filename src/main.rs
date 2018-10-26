@@ -1,4 +1,4 @@
-use clap::{App, Arg};
+use clap::{App, Arg, SubCommand};
 use serde_derive::Deserialize;
 use std::fs::File;
 use std::io::Read;
@@ -48,30 +48,32 @@ fn get_crates(toml_file: &str, excluded_crates: Vec<&str>, extra_crates: Vec<&st
 
 fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
-        .version(env!("CARGO_PKG_VERSION"))
-        .about("`cargo doc` wrapper that only builds documentation for the current crate's direct dependencies. You can also explicitly include and exclude crates from being documented using the -e and -i options.")
-        .author(env!("CARGO_PKG_AUTHORS"))
-        .arg(
-            Arg::with_name("exclude")
-                .short("e")
-                .takes_value(true)
-                .multiple(true)
-                .help("do not build documentation for a crate"),
-        )
-        .arg(
-            Arg::with_name("include")
-                .short("i")
-                .takes_value(true)
-                .multiple(true)
-                .help("build documentation for a crate"),
-        )
-        .arg(
-            Arg::with_name("open")
-                .short("o")
-                .long("open")
-                .help("opens the documentation for the first dependency")
-        )
+        .subcommand(SubCommand::with_name("makedocs")
+            .version(env!("CARGO_PKG_VERSION"))
+            .about("`cargo doc` wrapper that only builds documentation for the current crate's direct dependencies. You can also explicitly include and exclude crates from being documented using the -e and -i options.")
+            .author(env!("CARGO_PKG_AUTHORS"))
+            .arg(
+                Arg::with_name("exclude")
+                    .short("e")
+                    .takes_value(true)
+                    .multiple(true)
+                    .help("do not build documentation for a crate"),
+            )
+            .arg(
+                Arg::with_name("include")
+                    .short("i")
+                    .takes_value(true)
+                    .multiple(true)
+                    .help("build documentation for a crate"),
+            )
+            .arg(
+                Arg::with_name("open")
+                    .short("o")
+                    .long("open")
+                    .help("opens the documentation for the first dependency")
+            ))
         .get_matches();
+    let matches = matches.subcommand_matches("makedocs").unwrap();
 
     let excluded_crates: Vec<&str> = match matches.values_of("exclude") {
         Some(ex) => ex.collect(),
