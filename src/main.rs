@@ -10,8 +10,67 @@ struct CargoToml {
     dependencies: value::Table,
 }
 
+#[derive(Deserialize)]
+struct CargoLock {
+    package: Vec<LockEntry>,
+}
+
+#[derive(Deserialize)]
+struct LockEntry {
+    name: String,
+    version: String,
+}
+
+struct Crate<'a> {
+    pub name: &'a str,
+    //Split string of version numbers
+    pub version: Vec<&'a str>,
+    pub revision: u8,
+}
+
+//Assumes the syntax of cargo.lock is correct
+fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String {
+    let mut out = Vec::new();
+    lock.package
+        .iter()
+        .filter(|x| x.name == name)
+        .for_each(|p| {
+            //Push the matching version numbers onto out
+            let split: Vec<&str> = p.version.split(".").collect();
+            let revision = split[2].parse::<u8>().unwrap();
+            let crate_version_split: Vec<&str> = version.split(".").collect();
+            if split[0] == crate_version_split[0]
+                && split[1] == crate_version_split[1]
+                && revision >= crate_version_split[2].parse::<u8>().unwrap()
+            {
+                out.push(Crate {
+                    name: &p.name,
+                    version: split,
+                    revision,
+                });
+            }
+        });
+
+    //Ensure we use the most up to date, compatible crate
+    out.sort_unstable_by(|x, y| x.revision.cmp(&y.revision));
+    out.dedup_by(|x, y| x.name == y.name);
+    debug_assert_eq!(out.len(), 1);
+
+    format!(
+        "{}:{}.{}.{}",
+        name, out[0].version[0], out[0].version[1], out[0].version[2]
+    )
+}
+
 fn get_crates(toml_file: &str, excluded_crates: Vec<&str>, extra_crates: Vec<&str>) -> Vec<String> {
     let root: CargoToml = toml::from_str(toml_file).unwrap();
+
+    let mut lock = String::new();
+    File::open("Cargo.lock")
+        .unwrap()
+        .read_to_string(&mut lock)
+        .unwrap();
+    let lock: CargoLock = toml::from_str(&lock).unwrap();
     root.dependencies
         .iter()
         .flat_map(|(k, v)| {
@@ -23,16 +82,16 @@ fn get_crates(toml_file: &str, excluded_crates: Vec<&str>, extra_crates: Vec<&st
                         eprintln!("{}: Missing version", k);
                         exit(1)
                     }),
-                    Value::String(s) => s.as_str(),
+                    Value::String(s) => s,
                     _ => {
                         eprintln!("Couldn't parse Cargo.toml: invalid value in key {}", k);
                         exit(1);
                     }
                 };
-                vec![
-                    "-p".to_string(),
-                    format!("{}:{}", k, version.replace("\"", "")),
-                ]
+
+                //Get the compatible version from Cargo.lock to always build the correct version
+                let name = correct_version(&lock, k, &version);
+                vec!["-p".to_string(), name]
             } else {
                 vec![]
             }
@@ -50,7 +109,7 @@ fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .subcommand(SubCommand::with_name("makedocs")
             .version(env!("CARGO_PKG_VERSION"))
-            .about("`cargo doc` wrapper that only builds documentation for the current crate's direct dependencies. You can also explicitly include and exclude crates from being documented using the -e and -i options.")
+            .about("`cargo doc` wrapper that only builds documentation for the current crate's direct dependencies, by scanning Cargo.toml and Cargo.lock. You can also explicitly include and exclude crates from being documented using the -e and -i options.")
             .author(env!("CARGO_PKG_AUTHORS"))
             .arg(
                 Arg::with_name("exclude")
