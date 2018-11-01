@@ -117,21 +117,30 @@ fn main() {
                     .takes_value(true)
                     .multiple(true)
                     .help("do not build documentation for a crate"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("include")
                     .short("i")
                     .takes_value(true)
                     .multiple(true)
                     .help("build documentation for a crate"),
-            )
-            .arg(
+            ).arg(
                 Arg::with_name("open")
                     .short("o")
                     .long("open")
-                    .help("opens the documentation for the first dependency")
-            ))
+                    .help("opens the built documentation")
+            ).arg(
+                Arg::with_name("root")
+                    .short("r")
+                    .long("root")
+                    .help("Build the documentation for the root crate")
+            ).arg(
+                Arg::with_name("document-private-items")
+                    .short("d")
+                    .long("document-private-items")
+                    .help("passes --document-private-items when building the docs for the root crate")
+                    .requires("root")))
         .get_matches();
+
     let matches = matches.subcommand_matches("makedocs").unwrap();
 
     let excluded_crates: Vec<&str> = match matches.values_of("exclude") {
@@ -158,16 +167,21 @@ fn main() {
     command.spawn().unwrap().wait().unwrap();
 
     //Open docs if requested. `cargo doc` doesn't allow --open with more than one -p argument, so
-    //it has to be run a second time for this, which also builds the documentation for the current
-    //crate.
+    //it has to be run a second time for this.
     if matches.is_present("open") {
-        Command::new("cargo")
-            .arg("doc")
-            .arg("--no-deps")
-            .arg("--open")
-            .spawn()
-            .unwrap()
-            .wait()
-            .unwrap();
+        let mut command = Command::new("cargo");
+        command.arg("doc").arg("--no-deps").arg("--open");
+
+        if !matches.is_present("root") {
+            command.arg("-p").arg(&crates[1]);
+        }
+
+        if matches.is_present("document-private-items") {
+            command.arg("--document-private-items");
+        }
+
+        println!("{:?}", command);
+
+        command.spawn().unwrap().wait().unwrap();
     }
 }
