@@ -1,8 +1,15 @@
 [package]
 name = "cargo-makedocs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Bunogi <2bunogi@gmail.com>"]
 edition = "2018"
+
+description = "A cargo doc wrapper that only builds the documentation you care about"
+repository = "https://github.com/Bunogi/cargo-makedocs"
+readme = "README.md"
+keywords = ["documentation", "cli", "build"]
+categories = ["command-line-utilities", "development-tools::cargo-plugins"]
+license = "MIT"
 
 [dependencies]
 clap = "2.32.0"
