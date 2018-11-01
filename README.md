@@ -1,5 +1,8 @@
 # cargo makedocs
 
+# Installation
+`cargo install cargo-makedocs`
+
 # Usage
 `cargo makedocs` will parse your current working directory's `Cargo.toml` and `Cargo.lock` for dependencies, and only build documentation for the direct dependencies. This saves you from having to type `cargo doc --no-deps -p <crate> ...`.
 ## Options
