@@ -36,9 +36,9 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
         .filter(|x| x.name == name)
         .for_each(|p| {
             //Push the matching version numbers onto out
-            let split: Vec<&str> = p.version.split(".").collect();
+            let split: Vec<&str> = p.version.split('.').collect();
             let revision = split[2].parse::<u8>().unwrap();
-            let crate_version_split: Vec<&str> = version.split(".").collect();
+            let crate_version_split: Vec<&str> = version.split('.').collect();
             if split[0] == crate_version_split[0]
                 && split[1] == crate_version_split[1]
                 && revision >= crate_version_split[2].parse::<u8>().unwrap()
@@ -62,7 +62,7 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
     )
 }
 
-fn get_crates(toml_file: &str, excluded_crates: Vec<&str>, extra_crates: Vec<&str>) -> Vec<String> {
+fn get_crates(toml_file: &str, excluded_crates: &[&str], extra_crates: &[&str]) -> Vec<String> {
     let root: CargoToml = toml::from_str(toml_file).unwrap();
 
     let mut lock = String::new();
@@ -157,7 +157,7 @@ fn main() {
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
 
-    let crates = get_crates(&contents, excluded_crates, extra_crates);
+    let crates = get_crates(&contents, &excluded_crates, &extra_crates);
 
     //Build command
     let mut command = Command::new("cargo");
