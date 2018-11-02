@@ -1,3 +1,7 @@
+extern crate clap;
+extern crate serde_derive;
+extern crate toml;
+
 use clap::{App, Arg, SubCommand};
 use serde_derive::Deserialize;
 use std::fs::File;
@@ -179,8 +183,6 @@ fn main() {
         if matches.is_present("document-private-items") {
             command.arg("--document-private-items");
         }
-
-        println!("{:?}", command);
 
         command.spawn().unwrap().wait().unwrap();
     }
