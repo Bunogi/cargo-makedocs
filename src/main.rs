@@ -167,6 +167,19 @@ fn main() {
     let mut command = Command::new("cargo");
     command.arg("doc").arg("--no-deps").args(&crates);
 
+    if matches.is_present("document-private-items") {
+        command.arg("--document-private-items");
+    }
+
+    if matches.is_present("root") {
+        let mut pkg_id_command = Command::new("cargo");
+        pkg_id_command.arg("pkgid");
+        let pkg_id = String::from_utf8_lossy(
+            &pkg_id_command.output().unwrap().stdout
+        ).replace("\n", "");
+        command.arg("-p").arg(pkg_id);
+    }
+
     //Build documentation
     command.spawn().unwrap().wait().unwrap();
 
@@ -178,10 +191,6 @@ fn main() {
 
         if !matches.is_present("root") {
             command.arg("-p").arg(&crates[1]);
-        }
-
-        if matches.is_present("document-private-items") {
-            command.arg("--document-private-items");
         }
 
         command.spawn().unwrap().wait().unwrap();
