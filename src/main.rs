@@ -1,9 +1,12 @@
 extern crate clap;
+extern crate semver;
 extern crate serde_derive;
 extern crate toml;
 
 use clap::{App, Arg, SubCommand};
+use semver::{Version, VersionReq};
 use serde_derive::Deserialize;
+use std::fmt;
 use std::fs::File;
 use std::io::Read;
 use std::process::{exit, Command};
@@ -27,43 +30,39 @@ struct LockEntry {
 
 struct Crate<'a> {
     pub name: &'a str,
-    //Split string of version numbers
-    pub version: Vec<&'a str>,
-    pub revision: u8,
+    pub version: Version,
+}
+
+impl<'a> fmt::Display for Crate<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}:{}", self.name, self.version)
+    }
 }
 
 //Assumes the syntax of cargo.lock is correct
 fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String {
     let mut out = Vec::new();
+    let crate_version = VersionReq::parse(version).unwrap();
     lock.package
         .iter()
         .filter(|x| x.name == name)
         .for_each(|p| {
             //Push the matching version numbers onto out
-            let split: Vec<&str> = p.version.split('.').collect();
-            let revision = split[2].parse::<u8>().unwrap();
-            let crate_version_split: Vec<&str> = version.split('.').collect();
-            if split[0] == crate_version_split[0]
-                && split[1] == crate_version_split[1]
-                && revision >= crate_version_split[2].parse::<u8>().unwrap()
-            {
+            let lock_version = Version::parse(p.version.as_str()).unwrap();
+            if crate_version.matches(&lock_version) {
                 out.push(Crate {
                     name: &p.name,
-                    version: split,
-                    revision,
+                    version: lock_version,
                 });
             }
         });
 
     //Ensure we use the most up to date, compatible crate
-    out.sort_unstable_by(|x, y| x.revision.cmp(&y.revision));
+    out.sort_unstable_by(|x, y| x.version.cmp(&y.version));
     out.dedup_by(|x, y| x.name == y.name);
     debug_assert_eq!(out.len(), 1);
 
-    format!(
-        "{}:{}.{}.{}",
-        name, out[0].version[0], out[0].version[1], out[0].version[2]
-    )
+    format!("{}", out[0])
 }
 
 fn get_crates(toml_file: &str, excluded_crates: &[&str], extra_crates: &[&str]) -> Vec<String> {
