@@ -3,7 +3,7 @@ extern crate semver;
 extern crate serde_derive;
 extern crate toml;
 
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use semver::{Version, VersionReq};
 use serde_derive::Deserialize;
 use std::fmt;
@@ -110,6 +110,7 @@ fn get_crates(toml_file: &str, excluded_crates: &[&str], extra_crates: &[&str]) 
 
 fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
+        .setting(AppSettings::SubcommandRequired)
         .subcommand(SubCommand::with_name("makedocs")
             .version(env!("CARGO_PKG_VERSION"))
             .about("`cargo doc` wrapper that only builds documentation for the current crate's direct dependencies, by scanning Cargo.toml and Cargo.lock. You can also explicitly include and exclude crates from being documented using the -e and -i options.")
@@ -144,8 +145,6 @@ fn main() {
                     .requires("root")))
         .get_matches();
 
-    let matches = matches.subcommand_matches("makedocs").unwrap_or_else(|| exit(0));
-
     let excluded_crates: Vec<&str> = match matches.values_of("exclude") {
         Some(ex) => ex.collect(),
         None => vec![],
@@ -173,9 +172,8 @@ fn main() {
     if matches.is_present("root") {
         let mut pkg_id_command = Command::new("cargo");
         pkg_id_command.arg("pkgid");
-        let pkg_id = String::from_utf8_lossy(
-            &pkg_id_command.output().unwrap().stdout
-        ).replace("\n", "");
+        let pkg_id =
+            String::from_utf8_lossy(&pkg_id_command.output().unwrap().stdout).replace("\n", "");
         command.arg("-p").arg(pkg_id);
     }
 
