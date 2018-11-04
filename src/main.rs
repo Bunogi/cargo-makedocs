@@ -145,6 +145,8 @@ fn main() {
                     .requires("root")))
         .get_matches();
 
+    let matches = matches.subcommand_matches("makedocs").unwrap(); //Cannot panic
+
     let excluded_crates: Vec<&str> = match matches.values_of("exclude") {
         Some(ex) => ex.collect(),
         None => vec![],
