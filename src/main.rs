@@ -58,7 +58,7 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
         });
 
     //Ensure we use the most up to date, compatible crate
-    out.sort_unstable_by(|x, y| x.version.cmp(&y.version));
+    out.sort_unstable_by(|x, y| y.version.cmp(&x.version));
     out.dedup_by(|x, y| x.name == y.name);
     debug_assert_eq!(out.len(), 1);
 
