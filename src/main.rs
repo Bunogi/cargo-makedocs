@@ -48,7 +48,7 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
         .filter(|x| x.name == name)
         .for_each(|p| {
             //Push the matching version numbers onto out
-            let lock_version = Version::parse(p.version.as_str()).unwrap();
+            let lock_version = Version::parse(&p.version.as_str()).unwrap();
             if crate_version.matches(&lock_version) {
                 out.push(Crate {
                     name: &p.name,
@@ -81,10 +81,16 @@ fn get_crates(toml_file: &str, excluded_crates: &[&str], extra_crates: &[&str]) 
                 //If multiple versions of a library is flying about we need to specify the correct version
                 let version = match v {
                     //If the dependency is added as [dependencies.<crate>], this needs to be handled
-                    Value::Table(t) => t["version"].as_str().unwrap_or_else(|| {
-                        eprintln!("{}: Missing version", k);
-                        exit(1)
-                    }),
+                    Value::Table(t) => {
+                        if let Some(v) = t.get("version") {
+                            v.as_str().unwrap()
+                        } else if t.get("path").is_some() {
+                            "*" //Assume that the user is developing the dependency if using a path
+                        } else {
+                            eprintln!("Error: dependency {} is invalid", k);
+                            exit(1);
+                        }
+                    }
                     Value::String(s) => s,
                     _ => {
                         eprintln!("Couldn't parse Cargo.toml: invalid value in key {}", k);
