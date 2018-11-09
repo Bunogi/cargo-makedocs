@@ -28,6 +28,7 @@ struct LockEntry {
     version: String,
 }
 
+#[derive(Debug)]
 struct Crate<'a> {
     pub name: &'a str,
     pub version: Version,
@@ -83,8 +84,9 @@ fn get_crates(
                     Value::Table(t) => {
                         if let Some(v) = t.get("version") {
                             v.as_str().unwrap()
-                        } else if t.get("path").is_some() {
+                        } else if t.get("path").is_some() || t.get("git").is_some() {
                             "*" //Assume that the user is developing the dependency if using a path
+                                //and that if using git, wants the latest version available
                         } else {
                             eprintln!("Error: dependency {} is invalid", k);
                             exit(1);
@@ -206,5 +208,52 @@ fn main() {
         }
 
         command.spawn().unwrap().wait().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn get_crates_include_exclude_crate() {
+        use super::get_crates;
+        let cargo_toml = r#"dependencies = {some-crate = "1.0.0", foo = "1.2.0"}"#;
+        let cargo_lock = r#"[[package]]
+name = "some-crate"
+version="1.3.2"
+[[package]]
+name="foo"
+version="1.3.5"
+[[package]]
+name = "include-me"
+version="1.2.3""#;
+        let crates = get_crates(cargo_toml, &cargo_lock, &["some-crate"], &["include-me"]);
+        assert_eq!(crates, ["-p", "foo:1.3.5", "-p", "include-me"]);
+    }
+
+    #[test]
+    fn get_crates_from_path() {
+        use super::get_crates;
+        let cargo_toml = r#"dependencies = {some-crate = { path = "some-crate" }}"#;
+        let cargo_lock = r#"[[package]]
+name = "some-crate"
+version="1.3.2"
+[[package]]
+name = "some-crate"
+version = "1.3.6""#;
+        let crates = get_crates(cargo_toml, cargo_lock, &[], &[]);
+        assert_eq!(crates, ["-p", "some-crate:1.3.6"]);
+    }
+
+    #[test]
+    fn get_version_from_git() {
+        use super::get_crates;
+        let cargo_toml = r#"dependencies = {libc = { git = "https://github.com/rust-lang/libc" }}"#;
+        let cargo_lock = r#"[[package]]
+name = "libc"
+version = "0.2.43"
+source = "git+https://github.com/rust-lang/libc#9c5e70ae306463a23ec02179ac2c9fe05c3fb44e"
+"#;
+        let crates = get_crates(cargo_toml, cargo_lock, &[], &[]);
+        assert_eq!(crates, ["-p", "libc:0.2.43"]);
     }
 }
