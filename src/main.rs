@@ -65,15 +65,14 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
     format!("{}", out[0])
 }
 
-fn get_crates(toml_file: &str, excluded_crates: &[&str], extra_crates: &[&str]) -> Vec<String> {
+fn get_crates(
+    toml_file: &str,
+    lock_file: &str,
+    excluded_crates: &[&str],
+    extra_crates: &[&str],
+) -> Vec<String> {
     let root: CargoToml = toml::from_str(toml_file).unwrap();
-
-    let mut lock = String::new();
-    File::open("Cargo.lock")
-        .unwrap()
-        .read_to_string(&mut lock)
-        .unwrap();
-    let lock: CargoLock = toml::from_str(&lock).unwrap();
+    let lock: CargoLock = toml::from_str(lock_file).unwrap();
     root.dependencies
         .iter()
         .flat_map(|(k, v)| {
@@ -163,11 +162,19 @@ fn main() {
         None => vec![],
     };
 
-    let mut file = File::open("Cargo.toml").unwrap();
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).unwrap();
+    let mut cargo_toml = String::new();
+    File::open("Cargo.toml")
+        .unwrap()
+        .read_to_string(&mut cargo_toml)
+        .unwrap();
 
-    let crates = get_crates(&contents, &excluded_crates, &extra_crates);
+    let mut lock_file = String::new();
+    File::open("Cargo.lock")
+        .unwrap()
+        .read_to_string(&mut lock_file)
+        .unwrap();
+
+    let crates = get_crates(&cargo_toml, &lock_file, &excluded_crates, &extra_crates);
 
     //Build command
     let mut command = Command::new("cargo");
