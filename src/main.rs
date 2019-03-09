@@ -14,7 +14,9 @@ use toml::value::{self, Value};
 
 #[derive(Deserialize)]
 struct CargoToml {
-    dependencies: value::Table,
+    dependencies: Option<value::Table>,
+    #[serde(rename = "build-dependencies")]
+    build_dependencies: Option<value::Table>,
 }
 
 #[derive(Deserialize)]
@@ -71,11 +73,23 @@ fn get_crates(
     lock_file: &str,
     excluded_crates: &[&str],
     extra_crates: &[&str],
+    buildtime: bool,
 ) -> Vec<String> {
     let root: CargoToml = toml::from_str(toml_file).unwrap();
     let lock: CargoLock = toml::from_str(lock_file).unwrap();
     root.dependencies
         .iter()
+        .flatten()
+        .chain(
+            //Include or ignore buildtime dependencies
+            if buildtime {
+                root.build_dependencies
+            } else {
+                None
+            }
+            .iter()
+            .flatten(),
+        )
         .flat_map(|(k, v)| {
             if !excluded_crates.contains(&k.as_str()) {
                 //If multiple versions of a library is flying about we need to specify the correct version
@@ -149,7 +163,14 @@ fn main() {
                     .short("d")
                     .long("document-private-items")
                     .help("passes --document-private-items when building the docs for the root crate")
-                    .requires("root")))
+                    .requires("root")
+            ).arg(
+                Arg::with_name("no-buildtime")
+                  .short("n")
+                  .long("no-buildtime")
+                  .help("Ignore buildtime dependencies")
+            )
+        )
         .get_matches();
 
     let matches = matches.subcommand_matches("makedocs").unwrap(); //Cannot panic
@@ -176,7 +197,13 @@ fn main() {
         .read_to_string(&mut lock_file)
         .unwrap();
 
-    let crates = get_crates(&cargo_toml, &lock_file, &excluded_crates, &extra_crates);
+    let crates = get_crates(
+        &cargo_toml,
+        &lock_file,
+        &excluded_crates,
+        &extra_crates,
+        !matches.is_present("no-buildtime"),
+    );
 
     //Build command
     let mut command = Command::new("cargo");
@@ -194,12 +221,18 @@ fn main() {
         command.arg("-p").arg(pkg_id);
     }
 
+    if crates.is_empty() {
+        println!("Found no crates to document");
+        exit(1);
+    }
+
     //Build documentation
     command.spawn().unwrap().wait().unwrap();
 
     //Open docs if requested. `cargo doc` doesn't allow --open with more than one -p argument, so
     //it has to be run a second time for this.
     if matches.is_present("open") {
+        if crates.is_empty() {}
         let mut command = Command::new("cargo");
         command.arg("doc").arg("--no-deps").arg("--open");
 
@@ -214,6 +247,19 @@ fn main() {
 #[cfg(test)]
 mod tests {
     #[test]
+    fn get_crates_buildtime_deps() {
+        use super::get_crates;
+        let cargo_toml = r#"build-dependencies = {some-crate = "1.0.0", foo = "1.3"}"#;
+        let cargo_lock = r#"[[package]]
+name = "some-crate"
+version="1.3.2"
+[[package]]
+name="foo"
+version="1.3.5""#;
+        let crates = get_crates(cargo_toml, cargo_lock, &[], &[], true);
+        assert_eq!(crates, ["-p", "foo:1.3.5", "-p", "some-crate:1.3.2"])
+    }
+    #[test]
     fn get_crates_include_exclude_crate() {
         use super::get_crates;
         let cargo_toml = r#"dependencies = {some-crate = "1.0.0", foo = "1.2.0"}"#;
@@ -226,7 +272,13 @@ version="1.3.5"
 [[package]]
 name = "include-me"
 version="1.2.3""#;
-        let crates = get_crates(cargo_toml, &cargo_lock, &["some-crate"], &["include-me"]);
+        let crates = get_crates(
+            cargo_toml,
+            &cargo_lock,
+            &["some-crate"],
+            &["include-me"],
+            true,
+        );
         assert_eq!(crates, ["-p", "foo:1.3.5", "-p", "include-me"]);
     }
 
@@ -240,7 +292,7 @@ version="1.3.2"
 [[package]]
 name = "some-crate"
 version = "1.3.6""#;
-        let crates = get_crates(cargo_toml, cargo_lock, &[], &[]);
+        let crates = get_crates(cargo_toml, cargo_lock, &[], &[], true);
         assert_eq!(crates, ["-p", "some-crate:1.3.6"]);
     }
 
@@ -253,7 +305,7 @@ name = "libc"
 version = "0.2.43"
 source = "git+https://github.com/rust-lang/libc#9c5e70ae306463a23ec02179ac2c9fe05c3fb44e"
 "#;
-        let crates = get_crates(cargo_toml, cargo_lock, &[], &[]);
+        let crates = get_crates(cargo_toml, cargo_lock, &[], &[], true);
         assert_eq!(crates, ["-p", "libc:0.2.43"]);
     }
 }
