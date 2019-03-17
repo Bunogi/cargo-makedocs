@@ -63,9 +63,16 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
     //Ensure we use the most up to date, compatible crate
     out.sort_unstable_by(|x, y| y.version.cmp(&x.version));
     out.dedup_by(|x, y| x.name == y.name);
-    debug_assert_eq!(out.len(), 1);
 
-    format!("{}", out[0])
+    //out can be zero-length if you run cargo-makedocs before cargo build.
+    //Pass just the crate name to get cargo to add it
+    if out.len() == 0 {
+        eprintln!("Warning: {} not found in Cargo.lock (did you run `cargo build`?), `cargo doc` might fail.", name);
+        name.to_string()
+    } else {
+        format!("{}", out[0])
+    }
+    // debug_assert_eq!(out.len(), 1);
 }
 
 fn get_crates(
