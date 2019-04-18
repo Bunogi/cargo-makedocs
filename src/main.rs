@@ -8,10 +8,9 @@ use semver::{Version, VersionReq};
 use serde_derive::Deserialize;
 use std::env;
 use std::fmt;
-use std::fs;
 use std::fs::File;
 use std::io::Read;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{exit, Command};
 use toml::value::{self, Value};
 
@@ -69,7 +68,7 @@ fn correct_version<'a>(lock: &'a CargoLock, name: &str, version: &str) -> String
 
     //out can be zero-length if you run cargo-makedocs before cargo build.
     //Pass just the crate name to get cargo to add it
-    if out.len() == 0 {
+    if out.is_empty() {
         eprintln!("Warning: {} not found in Cargo.lock (did you run `cargo build`?), `cargo doc` might fail.", name);
         name.to_string()
     } else {
@@ -134,7 +133,7 @@ fn get_crates(
             extra_crates
                 .iter()
                 .flat_map(|s| vec!["-p", s])
-                .map(|s| s.to_string()),
+                .map(std::string::ToString::to_string),
         )
         .collect()
 }
@@ -155,7 +154,7 @@ fn find_rootdir() -> Result<PathBuf, String> {
                 s.pop();
                 Ok(s)
             }
-            None => Err(format!("Cannot find Cargo.toml in any ancestor directory")),
+            None => Err("Cannot find Cargo.toml in any ancestor directory".to_string()),
         },
         Err(e) => Err(format!("Can't find Cargo.toml: {}", e)),
     }
