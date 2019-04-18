@@ -12,7 +12,7 @@ license = "MIT"
 
 [dependencies]
 clap = "2.32.0"
-toml = "0.4.8"
+toml = "0.5.0"
 serde_derive = "1.0.80"
 serde = "1.0.80"
 semver = "0.9.0"

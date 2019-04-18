@@ -6,9 +6,12 @@ extern crate toml;
 use clap::{App, AppSettings, Arg, SubCommand};
 use semver::{Version, VersionReq};
 use serde_derive::Deserialize;
+use std::env;
 use std::fmt;
+use std::fs;
 use std::fs::File;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::process::{exit, Command};
 use toml::value::{self, Value};
 
@@ -136,7 +139,29 @@ fn get_crates(
         .collect()
 }
 
-fn main() {
+//Looks for Cargo.toml in every directory above the current directory.
+fn find_rootdir() -> Result<PathBuf, String> {
+    match env::current_dir() {
+        Ok(dir) => match dir
+            .ancestors()
+            .flat_map(|a| {
+                a.read_dir()
+                    .map(|f| f.map(|entry| entry.unwrap().path()))
+                    .unwrap()
+            })
+            .find(|buf| buf.file_name() == Some("Cargo.toml".as_ref()))
+        {
+            Some(mut s) => {
+                s.pop();
+                Ok(s)
+            }
+            None => Err(format!("Cannot find Cargo.toml in any ancestor directory")),
+        },
+        Err(e) => Err(format!("Can't find Cargo.toml: {}", e)),
+    }
+}
+
+fn main() -> Result<(), String> {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .setting(AppSettings::SubcommandRequired)
         .subcommand(SubCommand::with_name("makedocs")
@@ -192,14 +217,20 @@ fn main() {
         None => vec![],
     };
 
+    //Cargo root directory
+    let dir = match find_rootdir() {
+        Ok(path) => path.canonicalize().unwrap(),
+        Err(e) => return Err(e),
+    };
+
     let mut cargo_toml = String::new();
-    File::open("Cargo.toml")
+    File::open(dir.join("Cargo.toml"))
         .unwrap()
         .read_to_string(&mut cargo_toml)
         .unwrap();
 
     let mut lock_file = String::new();
-    File::open("Cargo.lock")
+    File::open(dir.join("Cargo.lock"))
         .unwrap()
         .read_to_string(&mut lock_file)
         .unwrap();
@@ -249,6 +280,7 @@ fn main() {
 
         command.spawn().unwrap().wait().unwrap();
     }
+    Ok(())
 }
 
 #[cfg(test)]
