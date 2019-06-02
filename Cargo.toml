@@ -1,7 +1,8 @@
 [package]
 name = "cargo-makedocs"
-version = "0.3.2"
+version = "1.0.0"
 authors = ["Bunogi <2bunogi@gmail.com>"]
+edition = "2018"
 
 description = "A cargo doc wrapper that only builds the documentation you care about"
 repository = "https://github.com/Bunogi/cargo-makedocs"
