@@ -1,3 +1,5 @@
+# 1.1.0
+- Support workspaces
 # 1.0.0
 - Support renamed crates
 - Cargo-makedocs errors are now easier to distinguish
