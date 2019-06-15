@@ -1,4 +1,4 @@
-# cargo makedocs
+# cargo makedocs [![Build Status](https://travis-ci.org/Bunogi/cargo-makedocs.svg?branch=master)](https://travis-ci.org/Bunogi/cargo-makedocs) [![Crates.io Status](https://img.shields.io/crates/v/cargo-makedocs.svg)](https://crates.io/crates/cargo-makedocs)
 
 # Installation
 `cargo install cargo-makedocs`
