@@ -1,3 +1,5 @@
+# 1.2.0
+- If a crate is found at the workspace root, also document that crate's dependencies.
 # 1.1.0
 - Support workspaces
 # 1.0.0

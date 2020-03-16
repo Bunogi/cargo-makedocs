@@ -144,7 +144,7 @@ fn get_crates(
         .collect())
 }
 
-fn create_arguments(input: &Vec<String>) -> Vec<&str> {
+fn create_arguments(input: &[String]) -> Vec<&str> {
     input.iter().flat_map(|s| vec!["-p", s]).collect()
 }
 
@@ -230,8 +230,8 @@ fn run(matches: &clap::ArgMatches) -> Result<(), String> {
 
     let mut crate_operations = Vec::new(); //`cargo doc`'s -p argument doesn't work when used at the root
                                            //of a workspace, so queue up operations
-    if let Some(workspace) = manifest.workspace {
-        for member in workspace.members {
+    if let Some(ref workspace) = manifest.workspace {
+        for member in &workspace.members {
             //Cargo doesn't care about the actual name of a workspaced crate, just it's path
             let local_dir = dir.join(&member);
 
@@ -252,6 +252,21 @@ fn run(matches: &clap::ArgMatches) -> Result<(), String> {
                 !matches.is_present("no-buildtime"),
             )?;
             crate_operations.push((local_dir, gotten_crates)); //Queue up operation
+        }
+
+        //Just because this Cargo.toml designates a workspace, does not mean it does not describe a crate,
+        //so look for a root crate.
+        if manifest.dependencies.is_some() {
+            crate_operations.push((
+                dir,
+                get_crates(
+                    manifest,
+                    &manifest_lock,
+                    &excluded_crates,
+                    &extra_crates,
+                    !matches.is_present("no-buildtime"),
+                )?,
+            ));
         }
     } else {
         //Sigular crate, only one operation
